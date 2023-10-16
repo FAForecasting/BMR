@@ -36,8 +36,8 @@ class bvarm_R : public bm::bvarm
         SEXP IRF_R(int n_irf_periods);
         SEXP FEVD_R(int n_periods);
 
-        SEXP forecast_R(int n_horizon, bool incl_shocks);
-        SEXP forecast_R(const arma::mat& Y_T, int n_horizon, bool incl_shocks);
+        SEXP forecast_R(const arma::mat& X_ext, int n_horizon, bool incl_shocks);
+        SEXP forecast_R(const arma::mat& Y_T, const arma::mat& X_ext, int n_horizon, bool incl_shocks);
 };
 
 class bvars_R : public bm::bvars

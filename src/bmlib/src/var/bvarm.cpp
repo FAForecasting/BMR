@@ -464,19 +464,19 @@ bm::bvarm::FEVD(const uint_t n_periods)
 // forecasting
 
 arma::cube
-bm::bvarm::forecast(const uint_t horizon, const bool incl_shocks)
+bm::bvarm::forecast(const arma::mat& X_ext, const uint_t horizon, const bool incl_shocks)
 {
-    return this->forecast_int(nullptr,horizon,incl_shocks);
+    return this->forecast_int(nullptr, &X_ext, horizon, incl_shocks);
 }
 
 arma::cube
-bm::bvarm::forecast(const arma::mat& X_T, const uint_t horizon, const bool incl_shocks)
+bm::bvarm::forecast(const arma::mat& X_T, const arma::mat& X_ext, const uint_t horizon, const bool incl_shocks)
 {
-    return this->forecast_int(&X_T,horizon,incl_shocks);
+    return this->forecast_int(&X_T, &X_ext, horizon, incl_shocks);
 }
 
 arma::cube
-bm::bvarm::forecast_int(const arma::mat* X_T_inp, const uint_t horizon, const bool incl_shocks)
+bm::bvarm::forecast_int(const arma::mat* X_T_inp, const arma::mat* X_ext_inp, const uint_t horizon, const bool incl_shocks)
 {
     const uint_t n_draws = beta_draws.n_slices;
     const int K_adj = K - n_ext_vars;
@@ -486,13 +486,19 @@ bm::bvarm::forecast_int(const arma::mat* X_T_inp, const uint_t horizon, const bo
     if (X_T_inp) {
         X_T = *X_T_inp;
     } else {
-        X_T = X.row(X.n_rows-1);
+        X_T = X.row(X.n_rows - 1);
 
         if (K_adj > M + c_int) {
-            X_T.cols(c_int+M,K_adj-1) = X_T.cols(c_int,K_adj-M-1);
+            X_T.cols(c_int + M, K_adj - 1) = X_T.cols(c_int, K_adj - M - 1);
         }
 
-        X_T.cols(c_int,c_int+M-1) = Y.row(Y.n_rows-1);
+        X_T.cols(c_int, c_int + M - 1) = Y.row(Y.n_rows - 1);
+    }
+
+    arma::mat X_ext;
+
+    if (n_ext_vars > 0) {
+        X_ext = *X_ext_inp;
     }
     
     arma::cube forecast_cube(horizon, M, n_draws);
@@ -506,22 +512,26 @@ bm::bvarm::forecast_int(const arma::mat* X_T_inp, const uint_t horizon, const bo
 #ifdef BM_USE_OPENMP
         #pragma omp parallel for 
 #endif
-        for (uint_t i=0; i < n_draws; i++)
+        for (uint_t i = 0; i < n_draws; i++)
         {
             arma::mat beta_b = beta_draws.slice(i);
 
-            arma::mat Y_forecast = arma::zeros(horizon,M);
+            arma::mat Y_forecast = arma::zeros(horizon, M);
             arma::mat X_Th = X_T;
 
-            for (uint_t j=1; j <= horizon; j++)
+            for (uint_t j = 1; j <= horizon; j++)
             {
-                Y_forecast.row(j-1) = X_Th*beta_b + arma::trans(stats::rmvnorm<arma::mat>(arma::zeros(M,1),chol_shock_cov,true));
+                Y_forecast.row(j - 1) = X_Th * beta_b + arma::trans(stats::rmvnorm<arma::mat>(arma::zeros(M, 1), chol_shock_cov, true));
 
                 if (K_adj > M + c_int) {
-                    X_Th(0,arma::span(M+c_int,K_adj-1)) = X_Th(0,arma::span(c_int,K_adj-M-1));
+                    X_Th(0, arma::span(M + c_int, K_adj - 1)) = X_Th(0, arma::span(c_int, K_adj - M - 1));
                 }
 
-                X_Th(0,arma::span(c_int,M-1+c_int)) = Y_forecast.row(j-1);
+                if (n_ext_vars > 0) {
+                    X_Th(0, arma::span(K_adj - 1 - n_ext_vars, K - 1)) = X_ext.row(j);
+                }
+
+                X_Th(0, arma::span(c_int, M - 1 + c_int)) = Y_forecast.row(j - 1);
             }
 
             //
@@ -534,22 +544,26 @@ bm::bvarm::forecast_int(const arma::mat* X_T_inp, const uint_t horizon, const bo
 #ifdef BM_USE_OPENMP
         #pragma omp parallel for
 #endif
-        for (uint_t i=0; i < n_draws; i++)
+        for (uint_t i = 0; i < n_draws; i++)
         {
             arma::mat beta_b = beta_draws.slice(i);
 
-            arma::mat Y_forecast = arma::zeros(horizon,M);
+            arma::mat Y_forecast = arma::zeros(horizon, M);
             arma::mat X_Th = X_T;
 
-            for (uint_t j=1; j<=horizon; j++)
+            for (uint_t j = 1; j <= horizon; j++)
             {
-                Y_forecast.row(j-1) = X_Th*beta_b;
+                Y_forecast.row(j - 1) = X_Th * beta_b;
 
                 if (K_adj > M + c_int) {
-                    X_Th(0,arma::span(M+c_int,K_adj-1)) = X_Th(0,arma::span(c_int,K_adj-M-1));
+                    X_Th(0, arma::span(M + c_int, K_adj - 1)) = X_Th(0, arma::span(c_int, K_adj - M - 1));
                 }
 
-                X_Th(0,arma::span(c_int,M-1+c_int)) = Y_forecast.row(j-1);
+                if (n_ext_vars > 0) {
+                    X_Th(0, arma::span(K_adj - 1 - n_ext_vars, K - 1)) = X_ext.row(j);
+                }
+
+                X_Th(0, arma::span(c_int, M - 1 + c_int)) = Y_forecast.row(j - 1);
             }
 
             //

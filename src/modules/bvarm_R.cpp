@@ -33,8 +33,8 @@ RCPP_MODULE(bvarm_module)
     void (bvarm_R::*prior_1)(const arma::vec&) = &bvarm_R::prior_R;
     void (bvarm_R::*prior_2)(const arma::vec&, int, int, double, double, double, double) = &bvarm_R::prior_R;
 
-    SEXP (bvarm_R::*forecast_1)(int, bool) = &bvarm_R::forecast_R;
-    SEXP (bvarm_R::*forecast_2)(const arma::mat&, int, bool) = &bvarm_R::forecast_R;
+    SEXP (bvarm_R::*forecast_1)(const arma::mat&, int, bool) = &bvarm_R::forecast_R;
+    SEXP (bvarm_R::*forecast_2)(const arma::mat&, const arma::mat&, int, bool) = &bvarm_R::forecast_R;
   
     // now we can declare the class
     class_<bm::bvarm>( "bvarm_cpp" )
@@ -186,10 +186,10 @@ SEXP bvarm_R::FEVD_R(int n_periods)
     return R_NilValue;
 }
 
-SEXP bvarm_R::forecast_R(int n_horizon, bool incl_shocks)
+SEXP bvarm_R::forecast_R(const arma::mat& X_ext, int n_horizon, bool incl_shocks)
 {
     try {
-        arma::cube fcast_res = this->forecast(n_horizon,incl_shocks);
+        arma::cube fcast_res = this->forecast(X_ext, n_horizon, incl_shocks);
 
         return Rcpp::List::create(Rcpp::Named("forecast_vals") = fcast_res);
     } catch( std::exception &ex ) {
@@ -200,10 +200,10 @@ SEXP bvarm_R::forecast_R(int n_horizon, bool incl_shocks)
     return R_NilValue;
 }
 
-SEXP bvarm_R::forecast_R(const arma::mat& Y_T, int n_horizon, bool incl_shocks)
+SEXP bvarm_R::forecast_R(const arma::mat& Y_T, const arma::mat& X_ext, int n_horizon, bool incl_shocks)
 {
     try {
-        arma::cube fcast_res = this->forecast(Y_T,n_horizon,incl_shocks);
+        arma::cube fcast_res = this->forecast(Y_T, X_ext, n_horizon, incl_shocks);
 
         return Rcpp::List::create(Rcpp::Named("forecast_vals") = fcast_res);
     } catch( std::exception &ex ) {
